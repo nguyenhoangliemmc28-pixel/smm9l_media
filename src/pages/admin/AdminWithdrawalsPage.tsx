@@ -1,0 +1,126 @@
+import { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { ArrowDownToLine, Check, X, Search } from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
+import { TablePagination, EmptyState, PageHeader } from '@/components/ui/Table';
+import { useToast } from '@/lib/toast';
+import { useQuery } from '@/lib/useQuery';
+import { fetchWithdrawals, processWithdrawal } from '@/lib/admin';
+import { formatCurrency, formatDate } from '@/lib/utils';
+
+const PER_PAGE = 10;
+
+const statusConfig: Record<string, { tone: 'success' | 'warning' | 'danger' | 'neutral'; label: string }> = {
+  PENDING: { tone: 'warning', label: 'Chờ duyệt' },
+  COMPLETED: { tone: 'success', label: 'Hoàn thành' },
+  REJECTED: { tone: 'danger', label: 'Từ chối' },
+};
+
+export function AdminWithdrawalsPage() {
+  const { toast } = useToast();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const { data: withdrawals, loading, refetch } = useQuery(() => fetchWithdrawals(200, 0), []);
+
+  const filtered = useMemo(() => {
+    return (withdrawals ?? []).filter((w) => {
+      const matchSearch = !search || (w.username ?? '').toLowerCase().includes(search.toLowerCase()) || w.bank.toLowerCase().includes(search.toLowerCase());
+      const matchStatus = statusFilter === 'all' || w.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [search, statusFilter, withdrawals]);
+
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  const pendingCount = (withdrawals ?? []).filter((w) => w.status === 'PENDING').length;
+
+  const handleAction = async (id: string, action: 'approve' | 'reject') => {
+    setActionLoading(id);
+    try {
+      await processWithdrawal(id, action);
+      toast(action === 'approve' ? 'Đã duyệt rút tiền' : 'Đã từ chối rút tiền', 'success');
+      refetch();
+    } catch (e: any) {
+      toast(e.message ?? 'Lỗi', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <PageHeader title="Rút tiền" subtitle={`${pendingCount} yêu cầu chờ duyệt`} />
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 max-w-md">
+          <Input placeholder="Tìm theo user hoặc ngân hàng..." value={search} onChange={(e) => setSearch(e.target.value)} leftIcon={<Search className="h-4 w-4" />} />
+        </div>
+        <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} containerClassName="w-40">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="PENDING">Chờ duyệt</option>
+          <option value="COMPLETED">Hoàn thành</option>
+          <option value="REJECTED">Từ chối</option>
+        </Select>
+      </div>
+
+      <Card className="overflow-hidden">
+        {loading ? (
+          <div className="p-6 space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="skeleton h-12 rounded-lg" />)}</div>
+        ) : paginated.length === 0 ? (
+          <EmptyState icon={ArrowDownToLine} title="Chưa có yêu cầu rút tiền" />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-text-dim border-b border-border bg-bg-soft/30">
+                  <th className="font-medium py-3 px-4">User</th>
+                  <th className="font-medium py-3 px-4">Ngân hàng</th>
+                  <th className="font-medium py-3 px-4">Số tài khoản</th>
+                  <th className="font-medium py-3 px-4">Chủ tài khoản</th>
+                  <th className="font-medium py-3 px-4 text-right">Số tiền</th>
+                  <th className="font-medium py-3 px-4">Trạng thái</th>
+                  <th className="font-medium py-3 px-4">Ngày tạo</th>
+                  <th className="font-medium py-3 px-4 text-right">Hành động</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.map((w, i) => (
+                  <motion.tr key={w.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.01 }} className="border-b border-border/40 hover:bg-white/[0.02]">
+                    <td className="py-3 px-4 text-white font-medium">{w.username ?? 'N/A'}</td>
+                    <td className="py-3 px-4 text-text-muted">{w.bank}</td>
+                    <td className="py-3 px-4 text-text-muted">{w.account_number ?? '-'}</td>
+                    <td className="py-3 px-4 text-text-muted">{w.account_name ?? '-'}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-white">{formatCurrency(w.amount)}</td>
+                    <td className="py-3 px-4"><Badge tone={statusConfig[w.status]?.tone ?? 'neutral'} size="sm" dot>{statusConfig[w.status]?.label ?? w.status}</Badge></td>
+                    <td className="py-3 px-4 text-xs text-text-dim whitespace-nowrap">{formatDate(w.created_at)}</td>
+                    <td className="py-3 px-4 text-right">
+                      {w.status === 'PENDING' ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="success" size="sm" loading={actionLoading === w.id} leftIcon={<Check className="h-3.5 w-3.5" />} onClick={() => handleAction(w.id, 'approve')}>Duyệt</Button>
+                          <Button variant="danger" size="sm" loading={actionLoading === w.id} leftIcon={<X className="h-3.5 w-3.5" />} onClick={() => handleAction(w.id, 'reject')}>Từ chối</Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-text-dim">-</span>
+                      )}
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {totalPages > 1 && (
+          <TablePagination page={page} perPage={PER_PAGE} total={filtered.length} onPageChange={setPage} />
+        )}
+      </Card>
+    </div>
+  );
+}

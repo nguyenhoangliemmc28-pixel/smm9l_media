@@ -1,0 +1,87 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Plus, Pencil, Trash2, Ticket } from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Modal, ConfirmDialog } from '@/components/ui/Modal';
+import { EmptyState, PageHeader } from '@/components/ui/Table';
+import { useToast } from '@/lib/toast';
+import { useQuery } from '@/lib/useQuery';
+import { fetchCoupons, saveCoupon, deleteCoupon } from '@/lib/admin';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import type { ICoupon } from '@/lib/types';
+
+const emptyForm = { code: '', type: 'PERCENT', value: 0, min_order: 0, max_discount: null as number | null, usage_limit: null as number | null, per_user_limit: 1, status: 'ACTIVE', expires_at: '' };
+
+export function AdminCouponsPage() {
+  const { toast } = useToast();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<ICoupon | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const { data: coupons, loading, refetch } = useQuery(() => fetchCoupons(), []);
+
+  const openCreate = () => { setEditing(null); setForm({ ...emptyForm, code: 'COUPON' + Math.random().toString(36).slice(2, 6).toUpperCase() }); setModalOpen(true); };
+  const openEdit = (c: ICoupon) => { setEditing(c); setForm({ code: c.code, type: c.type, value: Number(c.value), min_order: Number(c.min_order), max_discount: c.max_discount ? Number(c.max_discount) : null, usage_limit: c.usage_limit, per_user_limit: c.per_user_limit, status: c.status, expires_at: c.expires_at ? c.expires_at.slice(0, 16) : '' }); setModalOpen(true); };
+
+  const handleSave = async () => {
+    if (!form.code) { toast('Vui lòng nhập mã', 'error'); return; }
+    setSaving(true);
+    try { await saveCoupon({ ...form, id: editing?.id, expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null }); toast(editing ? 'Đã cập nhật' : 'Đã tạo coupon', 'success'); setModalOpen(false); refetch(); }
+    catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => { try { await deleteCoupon(id); toast('Đã xóa coupon', 'success'); refetch(); } catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); } };
+
+  return (
+    <div className="space-y-5">
+      <PageHeader title="Mã giảm giá" subtitle={`${coupons?.length ?? 0} coupon`} action={<Button leftIcon={<Plus className="h-4 w-4" />} onClick={openCreate}>Tạo coupon</Button>} />
+
+      <Card className="overflow-hidden">
+        {loading ? (
+          <div className="p-6 space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="skeleton h-12 rounded-lg" />)}</div>
+        ) : (coupons ?? []).length === 0 ? (
+          <EmptyState icon={Ticket} title="Chưa có coupon" />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs text-text-dim border-b border-border bg-bg-soft/30"><th className="font-medium py-3 px-4">Mã</th><th className="font-medium py-3 px-4">Loại</th><th className="font-medium py-3 px-4 text-right">Giá trị</th><th className="font-medium py-3 px-4 text-right">Đã dùng</th><th className="font-medium py-3 px-4">Hết hạn</th><th className="font-medium py-3 px-4">Trạng thái</th><th className="font-medium py-3 px-4 text-right">Hành động</th></tr></thead>
+              <tbody>
+                {(coupons ?? []).map((c, i) => (
+                  <motion.tr key={c.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="border-b border-border/40 hover:bg-white/[0.02]">
+                    <td className="py-3 px-4"><code className="text-white font-mono font-medium">{c.code}</code></td>
+                    <td className="py-3 px-4"><Badge tone={c.type === 'PERCENT' ? 'primary' : 'accent'} size="sm">{c.type === 'PERCENT' ? '%' : '₫'}</Badge></td>
+                    <td className="py-3 px-4 text-right text-white font-medium">{c.type === 'PERCENT' ? `${c.value}%` : formatCurrency(Number(c.value))}</td>
+                    <td className="py-3 px-4 text-right text-text-muted">{c.used_count}{c.usage_limit ? `/${c.usage_limit}` : ''}</td>
+                    <td className="py-3 px-4 text-xs text-text-dim">{c.expires_at ? formatDate(c.expires_at) : 'Không giới hạn'}</td>
+                    <td className="py-3 px-4"><Badge tone={c.status === 'ACTIVE' ? 'success' : 'neutral'} size="sm" dot>{c.status}</Badge></td>
+                    <td className="py-3 px-4"><div className="flex justify-end gap-1"><button onClick={() => openEdit(c)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[0.06]"><Pencil className="h-4 w-4" /></button><button onClick={() => setDeleteId(c.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger/10"><Trash2 className="h-4 w-4" /></button></div></td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Sửa coupon' : 'Tạo coupon'} size="md">
+        <div className="space-y-4">
+          <Input label="Mã coupon" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} />
+          <div className="grid grid-cols-2 gap-4"><Select label="Loại" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}><option value="PERCENT">Phần trăm (%)</option><option value="FIXED">Số tiền cố định (₫)</option></Select><Input label="Giá trị" type="number" step="0.01" value={form.value} onChange={(e) => setForm({ ...form, value: parseFloat(e.target.value) || 0 })} /></div>
+          <div className="grid grid-cols-2 gap-4"><Input label="Đơn tối thiểu" type="number" value={form.min_order} onChange={(e) => setForm({ ...form, min_order: parseFloat(e.target.value) || 0 })} /><Input label="Giảm tối đa" type="number" value={form.max_discount ?? ''} onChange={(e) => setForm({ ...form, max_discount: e.target.value ? parseFloat(e.target.value) : null })} hint="Để trống nếu không giới hạn" /></div>
+          <div className="grid grid-cols-2 gap-4"><Input label="Giới hạn sử dụng" type="number" value={form.usage_limit ?? ''} onChange={(e) => setForm({ ...form, usage_limit: e.target.value ? parseInt(e.target.value) : null })} hint="Để trống = không giới hạn" /><Input label="Giới hạn/user" type="number" value={form.per_user_limit} onChange={(e) => setForm({ ...form, per_user_limit: parseInt(e.target.value) || 1 })} /></div>
+          <div className="grid grid-cols-2 gap-4"><Select label="Trạng thái" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></Select><Input label="Hết hạn" type="datetime-local" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} /></div>
+          <div className="flex justify-end gap-3 pt-2"><Button variant="secondary" onClick={() => setModalOpen(false)}>Hủy</Button><Button loading={saving} onClick={handleSave}>{editing ? 'Lưu' : 'Tạo'}</Button></div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => deleteId && handleDelete(deleteId)} title="Xóa coupon" message="Xóa mã giảm giá này?" confirmLabel="Xóa" danger />
+    </div>
+  );
+}

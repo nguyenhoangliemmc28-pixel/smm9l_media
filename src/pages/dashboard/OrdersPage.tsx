@@ -1,0 +1,278 @@
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Search, CheckCircle2, Clock, XCircle, Loader, AlertTriangle,
+  RotateCcw, X, Eye, ChevronLeft, ChevronRight, RefreshCw, Ban,
+} from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { useToast } from '@/lib/toast';
+import { useQuery } from '@/lib/useQuery';
+import { fetchOrders, refillOrder, cancelOrder } from '@/lib/services';
+import { formatCurrency, formatNumber, formatDate, cn } from '@/lib/utils';
+import type { IOrder } from '@/lib/types';
+
+type OrderStatus = 'all' | 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'PARTIAL' | 'CANCELED' | 'REFUNDED' | 'FAILED';
+
+const statusConfig = {
+  PENDING: { label: 'Chờ xử lý', icon: Clock, tone: 'warning' as const },
+  PROCESSING: { label: 'Đang chạy', icon: Loader, tone: 'primary' as const },
+  COMPLETED: { label: 'Hoàn thành', icon: CheckCircle2, tone: 'success' as const },
+  PARTIAL: { label: 'Một phần', icon: AlertTriangle, tone: 'accent' as const },
+  CANCELED: { label: 'Đã hủy', icon: XCircle, tone: 'neutral' as const },
+  REFUNDED: { label: 'Đã hoàn tiền', icon: RotateCcw, tone: 'accent' as const },
+  FAILED: { label: 'Lỗi', icon: XCircle, tone: 'danger' as const },
+};
+
+const statusFilters: { key: OrderStatus; label: string }[] = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'PENDING', label: 'Chờ xử lý' },
+  { key: 'PROCESSING', label: 'Đang chạy' },
+  { key: 'COMPLETED', label: 'Hoàn thành' },
+  { key: 'PARTIAL', label: 'Một phần' },
+  { key: 'FAILED', label: 'Lỗi' },
+  { key: 'CANCELED', label: 'Đã hủy' },
+  { key: 'REFUNDED', label: 'Đã hoàn tiền' },
+];
+
+export function OrdersPage() {
+  const location = useLocation();
+  const { toast } = useToast();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<OrderStatus>('all');
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<IOrder | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const perPage = 10;
+
+  const { data: orders, loading, refetch } = useQuery(() => fetchOrders(), []);
+
+  // Sync URL path to filter (for /dashboard/orders/running, etc.)
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.includes('/orders/running')) setStatusFilter('PROCESSING');
+    else if (path.includes('/orders/completed')) setStatusFilter('COMPLETED');
+    else if (path.includes('/orders/failed')) setStatusFilter('FAILED');
+    else if (path.endsWith('/orders')) setStatusFilter('all');
+  }, [location.pathname]);
+
+  const filtered = useMemo(() => {
+    return (orders ?? []).filter((o) => {
+      const matchSearch = o.id.toLowerCase().includes(search.toLowerCase()) ||
+        (o.service?.name ?? '').toLowerCase().includes(search.toLowerCase());
+      const matchStatus = statusFilter === 'all' || o.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [search, statusFilter, orders]);
+
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+
+  const handleRefill = async (orderId: string) => {
+    setActionLoading(orderId);
+    const result = await refillOrder(orderId);
+    setActionLoading(null);
+    if (result.success) { toast('Yêu cầu refill đã được tạo', 'success'); refetch(); }
+    else toast(result.message ?? 'Lỗi khi yêu cầu refill', 'error');
+  };
+
+  const handleCancel = async (orderId: string) => {
+    setActionLoading(orderId);
+    const result = await cancelOrder(orderId);
+    setActionLoading(null);
+    if (result.success) { toast('Đơn hàng đã được hủy và hoàn tiền', 'success'); refetch(); }
+    else toast(result.message ?? 'Lỗi khi hủy đơn', 'error');
+  };
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Đơn hàng</h1>
+        <p className="text-sm text-text-muted mt-1">{filtered.length} đơn hàng</p>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 max-w-md">
+          <Input
+            placeholder="Tìm theo ID hoặc tên dịch vụ..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            leftIcon={<Search className="h-4 w-4" />}
+          />
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+          {statusFilters.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => { setStatusFilter(f.key); setPage(1); }}
+              className={cn(
+                'shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                statusFilter === f.key
+                  ? 'bg-primary-500/20 text-primary-300 border border-primary-500/30'
+                  : 'glass text-text-muted hover:text-white',
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Card className="overflow-hidden">
+        {loading ? (
+          <div className="p-6 space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton h-12 rounded-lg" />)}
+          </div>
+        ) : paginated.length === 0 ? (
+          <div className="text-center py-16 text-text-muted">
+            <p>Chưa có đơn hàng nào. <a href="/dashboard/new-order" className="text-primary-300 hover:underline">Tạo đơn hàng</a></p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-text-dim border-b border-border bg-bg-soft/30">
+                    <th className="font-medium py-3 px-4">ID</th>
+                    <th className="font-medium py-3 px-4">Dịch vụ</th>
+                    <th className="font-medium py-3 px-4 text-right">SL</th>
+                    <th className="font-medium py-3 px-4 text-right">Bắt đầu</th>
+                    <th className="font-medium py-3 px-4 text-right">Còn lại</th>
+                    <th className="font-medium py-3 px-4 text-right">Phí</th>
+                    <th className="font-medium py-3 px-4">Trạng thái</th>
+                    <th className="font-medium py-3 px-4">Ngày tạo</th>
+                    <th className="font-medium py-3 px-4 text-right">Hành động</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map((o, i) => {
+                    const st = statusConfig[o.status as keyof typeof statusConfig] ?? statusConfig.PENDING;
+                    return (
+                      <motion.tr
+                        key={o.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: i * 0.02 }}
+                        className="border-b border-border/40 hover:bg-white/[0.02] transition-colors"
+                      >
+                        <td className="py-3 px-4 font-mono text-xs text-primary-300">{o.id.slice(0, 8)}</td>
+                        <td className="py-3 px-4">
+                          <div className="text-white font-medium">{o.service?.name ?? '—'}</div>
+                          <div className="text-xs text-text-dim truncate max-w-[180px]">{o.link}</div>
+                        </td>
+                        <td className="py-3 px-4 text-right text-text-muted">{formatNumber(o.quantity)}</td>
+                        <td className="py-3 px-4 text-right text-text-muted">{o.start_count ? formatNumber(o.start_count) : '—'}</td>
+                        <td className="py-3 px-4 text-right text-text-muted">{o.remains != null ? formatNumber(o.remains) : '—'}</td>
+                        <td className="py-3 px-4 text-right font-medium text-white">{formatCurrency(Number(o.charge))}</td>
+                        <td className="py-3 px-4"><Badge tone={st.tone} dot>{st.label}</Badge></td>
+                        <td className="py-3 px-4 text-xs text-text-dim whitespace-nowrap">{formatDate(o.created_at)}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => setSelected(o)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[0.06] transition-colors" title="Chi tiết">
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            {(o.status === 'COMPLETED' || o.status === 'PARTIAL') && o.refill_status !== 'PENDING' && (
+                              <button onClick={() => handleRefill(o.id)} disabled={actionLoading === o.id} className="h-8 w-8 rounded-lg flex items-center justify-center text-primary-300 hover:bg-primary-500/10" title="Yêu cầu refill">
+                                <RefreshCw className="h-4 w-4" />
+                              </button>
+                            )}
+                            {(o.status === 'PENDING' || o.status === 'PROCESSING') && (
+                              <button onClick={() => handleCancel(o.id)} disabled={actionLoading === o.id} className="h-8 w-8 rounded-lg flex items-center justify-center text-danger hover:bg-danger/10" title="Hủy đơn + hoàn tiền">
+                                <Ban className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+              <p className="text-xs text-text-dim">
+                {filtered.length > 0 ? `${(page - 1) * perPage + 1}-${Math.min(page * perPage, filtered.length)} / ${filtered.length}` : '0 đơn'}
+              </p>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[0.04] disabled:opacity-30 disabled:pointer-events-none">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button key={p} onClick={() => setPage(p)} className={cn('h-8 min-w-8 px-2 rounded-lg text-sm font-medium', p === page ? 'bg-primary-500/20 text-primary-300 border border-primary-500/30' : 'text-text-muted hover:text-white hover:bg-white/[0.04]')}>{p}</button>
+                ))}
+                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[0.04] disabled:opacity-30 disabled:pointer-events-none">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </Card>
+
+      <AnimatePresence>
+        {selected && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSelected(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-lg rounded-modal glass-strong shadow-card-hover p-6 max-h-[85vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button onClick={() => setSelected(null)} className="absolute top-4 right-4 h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[0.06]">
+                <X className="h-4 w-4" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5">
+                <div className="text-xl font-bold text-white">Đơn hàng #{selected.id.slice(0, 8)}</div>
+                <Badge tone={statusConfig[selected.status as keyof typeof statusConfig]?.tone ?? 'neutral'} dot>
+                  {statusConfig[selected.status as keyof typeof statusConfig]?.label ?? selected.status}
+                </Badge>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                {[
+                  ['Dịch vụ', selected.service?.name ?? '—'],
+                  ['Link', selected.link],
+                  ['Số lượng', formatNumber(selected.quantity)],
+                  ['Số lượng bắt đầu', selected.start_count ? formatNumber(selected.start_count) : '—'],
+                  ['Còn lại', selected.remains != null ? formatNumber(selected.remains) : '—'],
+                  ['Phí', formatCurrency(Number(selected.charge))],
+                  ['Trạng thái refill', selected.refill_status || '—'],
+                  ['Trạng thái hủy', selected.cancel_status || '—'],
+                  ['Ngày tạo', formatDate(selected.created_at)],
+                  selected.completed_at ? ['Hoàn thành', formatDate(selected.completed_at)] : null,
+                ].filter(Boolean).map(([k, v]) => (
+                  <div key={k as string} className="flex justify-between gap-4 py-2 border-b border-border/40">
+                    <span className="text-text-muted shrink-0">{k}</span>
+                    <span className="text-white font-medium text-right break-all">{v}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 flex gap-2">
+                {(selected.status === 'COMPLETED' || selected.status === 'PARTIAL') && selected.refill_status !== 'PENDING' && (
+                  <Button size="sm" leftIcon={<RefreshCw className="h-4 w-4" />} loading={actionLoading === selected.id} onClick={() => handleRefill(selected.id)}>Yêu cầu Refill</Button>
+                )}
+                {(selected.status === 'PENDING' || selected.status === 'PROCESSING') && (
+                  <Button variant="danger" size="sm" leftIcon={<Ban className="h-4 w-4" />} loading={actionLoading === selected.id} onClick={() => handleCancel(selected.id)}>Hủy đơn + hoàn tiền</Button>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
