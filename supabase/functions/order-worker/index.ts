@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
         const { data: provider } = await supabase.from("providers").select("id,status").eq("id", service.provider_id).eq("status", "ACTIVE").single();
         if (!provider) throw new Error("Provider unavailable");
         const fn = `${url}/functions/v1/provider-api`;
-        const resp = await fetch(fn, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: JSON.stringify({ action: "place_order", providerId: provider.id, serviceId: order.service_id, orderId: order.id, link: order.link, quantity: order.quantity }) });
+        const resp = await fetch(fn, { method: "POST", headers: { "Content-Type": "application/json", "X-Internal-Key": key }, body: JSON.stringify({ action: "place_order", providerId: provider.id, serviceId: order.service_id, orderId: order.id, link: order.link, quantity: order.quantity }) });
         const result = await resp.json().catch(() => ({}));
         if (!resp.ok || !result.success) throw new Error(result.message ?? "Provider dispatch failed");
         await supabase.rpc("complete_order_queue_job", { p_job_id: job.id, p_result: String(result.providerOrderId ?? "dispatched") });
