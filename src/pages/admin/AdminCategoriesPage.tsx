@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Pencil, Trash2, FolderTree } from 'lucide-react';
+import { Plus, Pencil, Trash2, FolderTree, Layers3, Power, Hash } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -12,84 +12,15 @@ import { useToast } from '@/lib/toast';
 import { useQuery } from '@/lib/useQuery';
 import { fetchAllCategories, saveCategory, deleteCategory } from '@/lib/admin';
 import type { ICategory } from '@/lib/types';
-
-const emptyForm = { name: '', slug: '', icon: '', color: '#6D5BFF', sort_order: 0, status: true };
-
-export function AdminCategoriesPage() {
-  const { toast } = useToast();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<ICategory | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-
-  const { data: categories, loading, refetch } = useQuery(() => fetchAllCategories(), []);
-
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setModalOpen(true); };
-  const openEdit = (c: ICategory) => { setEditing(c); setForm({ name: c.name, slug: c.slug, icon: c.icon ?? '', color: c.color ?? '#6D5BFF', sort_order: c.sort_order, status: c.status }); setModalOpen(true); };
-
-  const handleSave = async () => {
-    if (!form.name || !form.slug) { toast('Vui lòng nhập tên và slug', 'error'); return; }
-    setSaving(true);
-    try { await saveCategory({ ...form, id: editing?.id }); toast(editing ? 'Đã cập nhật danh mục' : 'Đã tạo danh mục', 'success'); setModalOpen(false); refetch(); }
-    catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); }
-    finally { setSaving(false); }
-  };
-
-  const handleDelete = async (id: string) => {
-    try { await deleteCategory(id); toast('Đã xóa danh mục', 'success'); refetch(); }
-    catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); }
-  };
-
-  return (
-    <div className="space-y-5">
-      <PageHeader title="Quản lý danh mục" subtitle={`${categories?.length ?? 0} danh mục`} action={<Button leftIcon={<Plus className="h-4 w-4" />} onClick={openCreate}>Thêm danh mục</Button>} />
-
-      <Card className="overflow-hidden">
-        {loading ? (
-          <div className="p-6 space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton h-12 rounded-lg" />)}</div>
-        ) : (categories ?? []).length === 0 ? (
-          <EmptyState icon={FolderTree} title="Chưa có danh mục" />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-text-dim border-b border-border bg-bg-soft/30">
-                  <th className="font-medium py-3 px-4">Tên</th><th className="font-medium py-3 px-4">Slug</th><th className="font-medium py-3 px-4">Màu</th><th className="font-medium py-3 px-4">Thứ tự</th><th className="font-medium py-3 px-4">Trạng thái</th><th className="font-medium py-3 px-4 text-right">Hành động</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(categories ?? []).map((c, i) => (
-                  <motion.tr key={c.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="border-b border-border/40 hover:bg-white/[0.02]">
-                    <td className="py-3 px-4"><div className="flex items-center gap-2.5"><div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: (c.color ?? '#6D5BFF') + '20' }}><div className="h-3 w-3 rounded-full" style={{ backgroundColor: c.color ?? '#6D5BFF' }} /></div><span className="text-white font-medium">{c.name}</span></div></td>
-                    <td className="py-3 px-4 text-text-muted font-mono text-xs">{c.slug}</td>
-                    <td className="py-3 px-4"><code className="text-xs text-text-muted">{c.color}</code></td>
-                    <td className="py-3 px-4 text-text-muted">{c.sort_order}</td>
-                    <td className="py-3 px-4"><Badge tone={c.status ? 'success' : 'neutral'} size="sm" dot>{c.status ? 'Active' : 'Off'}</Badge></td>
-                    <td className="py-3 px-4"><div className="flex items-center justify-end gap-1"><button onClick={() => openEdit(c)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[0.06]"><Pencil className="h-4 w-4" /></button><button onClick={() => setDeleteId(c.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger/10"><Trash2 className="h-4 w-4" /></button></div></td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Sửa danh mục' : 'Thêm danh mục'} size="md">
-        <div className="space-y-4">
-          <Input label="Tên danh mục" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Input label="Slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} hint="VD: facebook, tiktok" />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Icon (Lucide)" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
-            <div><label className="block text-sm font-medium text-white/80 mb-1.5">Màu</label><input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="w-full h-11 rounded-input border border-border bg-bg-card cursor-pointer" /></div>
-          </div>
-          <Input label="Thứ tự sắp xếp" type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value) || 0 })} />
-          <Toggle checked={form.status} onChange={(v) => setForm({ ...form, status: v })} label="Hoạt động" />
-          <div className="flex justify-end gap-3 pt-2"><Button variant="secondary" onClick={() => setModalOpen(false)}>Hủy</Button><Button loading={saving} onClick={handleSave}>{editing ? 'Lưu' : 'Tạo'}</Button></div>
-        </div>
-      </Modal>
-
-      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => deleteId && handleDelete(deleteId)} title="Xóa danh mục" message="Không thể xóa nếu danh mục đang có dịch vụ." confirmLabel="Xóa" danger />
-    </div>
-  );
+const emptyForm={name:'',slug:'',icon:'',color:'#6D5BFF',sort_order:0,status:true};
+export function AdminCategoriesPage(){
+ const {toast}=useToast(); const [modalOpen,setModalOpen]=useState(false); const [editing,setEditing]=useState<ICategory|null>(null); const [form,setForm]=useState(emptyForm); const [saving,setSaving]=useState(false); const [deleteId,setDeleteId]=useState<string|null>(null); const {data:categories,loading,refetch}=useQuery(()=>fetchAllCategories(),[]); const list=categories??[]; const active=list.filter(c=>c.status).length;
+ const openCreate=()=>{setEditing(null);setForm(emptyForm);setModalOpen(true)}; const openEdit=(c:ICategory)=>{setEditing(c);setForm({name:c.name,slug:c.slug,icon:c.icon??'',color:c.color??'#6D5BFF',sort_order:c.sort_order,status:c.status});setModalOpen(true)};
+ const handleSave=async()=>{if(!form.name||!form.slug){toast('Vui lòng nhập tên và slug','error');return}setSaving(true);try{await saveCategory({...form,id:editing?.id});toast(editing?'Đã cập nhật danh mục':'Đã tạo danh mục','success');setModalOpen(false);refetch()}catch(e:any){toast(e.message??'Lỗi','error')}finally{setSaving(false)}};
+ const handleDelete=async(id:string)=>{try{await deleteCategory(id);toast('Đã xóa danh mục','success');refetch()}catch(e:any){toast(e.message??'Lỗi','error')}};
+ return <div className="space-y-5"><div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"><PageHeader title="Quản lý danh mục" subtitle="Tổ chức dịch vụ theo nền tảng và nhóm sản phẩm"/><Button leftIcon={<Plus className="h-4 w-4"/>} onClick={openCreate}>Thêm danh mục</Button></div>
+ <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">{[['Tổng danh mục',list.length,Layers3],['Đang hoạt động',active,Power],['Đang tắt',list.length-active,FolderTree]].map(([label,value,Icon]:any,i)=><motion.div key={label} initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} transition={{delay:i*.04}}><Card className="p-4"><div className="flex items-center justify-between"><div><p className="text-xs text-text-dim">{label}</p><p className="text-xl font-bold text-white mt-1">{value}</p></div><div className="h-9 w-9 rounded-xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center"><Icon className="h-4 w-4 text-primary-300"/></div></div></Card></motion.div>)}</div>
+ <Card className="overflow-hidden">{loading?<div className="p-6 space-y-2">{Array.from({length:6}).map((_,i)=><div key={i} className="skeleton h-12 rounded-lg"/>)}</div>:list.length===0?<EmptyState icon={FolderTree} title="Chưa có danh mục" description="Tạo danh mục đầu tiên cho hệ thống"/>:<div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-xs text-text-dim border-b border-border bg-bg-soft/30"><th className="font-medium py-3 px-4">Danh mục</th><th className="font-medium py-3 px-4">Slug</th><th className="font-medium py-3 px-4">Màu</th><th className="font-medium py-3 px-4">Thứ tự</th><th className="font-medium py-3 px-4">Trạng thái</th><th className="font-medium py-3 px-4 text-right">Hành động</th></tr></thead><tbody>{list.map((c,i)=><motion.tr key={c.id} initial={{opacity:0}} animate={{opacity:1}} transition={{delay:i*.025}} className="border-b border-border/40 hover:bg-white/[.025]"><td className="py-3 px-4"><div className="flex items-center gap-3"><div className="h-9 w-9 rounded-xl flex items-center justify-center border" style={{backgroundColor:(c.color??'#6D5BFF')+'18',borderColor:(c.color??'#6D5BFF')+'40'}}><FolderTree className="h-4 w-4" style={{color:c.color??'#6D5BFF'}}/></div><div><div className="text-white font-medium">{c.name}</div><div className="text-[10px] uppercase tracking-wider text-text-dim">{c.icon||'category'}</div></div></div></td><td className="py-3 px-4 font-mono text-xs text-primary-300">/{c.slug}</td><td className="py-3 px-4"><span className="inline-flex items-center gap-2 text-xs text-text-muted"><span className="h-3 w-3 rounded-full" style={{backgroundColor:c.color??'#6D5BFF'}}/>{c.color}</span></td><td className="py-3 px-4 text-text-muted"><span className="inline-flex items-center gap-1"><Hash className="h-3 w-3"/>{c.sort_order}</span></td><td className="py-3 px-4"><Badge tone={c.status?'success':'neutral'} size="sm" dot>{c.status?'Hoạt động':'Đang tắt'}</Badge></td><td className="py-3 px-4"><div className="flex justify-end gap-1"><button onClick={()=>openEdit(c)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[.06]"><Pencil className="h-4 w-4"/></button><button onClick={()=>setDeleteId(c.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger/10"><Trash2 className="h-4 w-4"/></button></div></td></motion.tr>)}</tbody></table></div>}</Card>
+ <Modal open={modalOpen} onClose={()=>setModalOpen(false)} title={editing?'Sửa danh mục':'Thêm danh mục'} size="md"><div className="space-y-4"><Input label="Tên danh mục" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/><Input label="Slug" value={form.slug} onChange={e=>setForm({...form,slug:e.target.value})} hint="VD: facebook, tiktok"/><div className="grid grid-cols-2 gap-4"><Input label="Icon (Lucide)" value={form.icon} onChange={e=>setForm({...form,icon:e.target.value})}/><div><label className="block text-sm font-medium text-white/80 mb-1.5">Màu</label><input type="color" value={form.color} onChange={e=>setForm({...form,color:e.target.value})} className="w-full h-11 rounded-input border border-border bg-bg-card cursor-pointer"/></div></div><Input label="Thứ tự sắp xếp" type="number" value={form.sort_order} onChange={e=>setForm({...form,sort_order:parseInt(e.target.value)||0})}/><Toggle checked={form.status} onChange={v=>setForm({...form,status:v})} label="Hoạt động"/><div className="flex justify-end gap-3 pt-2"><Button variant="secondary" onClick={()=>setModalOpen(false)}>Hủy</Button><Button loading={saving} onClick={handleSave}>{editing?'Lưu thay đổi':'Tạo danh mục'}</Button></div></div></Modal>
+ <ConfirmDialog open={!!deleteId} onClose={()=>setDeleteId(null)} onConfirm={()=>deleteId&&handleDelete(deleteId)} title="Xóa danh mục" message="Không thể xóa nếu danh mục đang có dịch vụ." confirmLabel="Xóa danh mục" danger/></div>;
 }
