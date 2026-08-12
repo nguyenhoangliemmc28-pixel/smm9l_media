@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     for (const order of orders ?? []) {
       try {
         if (!order.provider_order_id || !order.provider_id) throw new Error("Provider mapping missing");
-        const resp = await fetch(`${url}/functions/v1/provider-api`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: JSON.stringify({ action: "sync_order", providerId: order.provider_id, orderId: order.id, providerOrderId: order.provider_order_id }) });
+        const resp = await fetch(`${url}/functions/v1/provider-api`, { method: "POST", headers: { "Content-Type": "application/json", "X-Internal-Key": key }, body: JSON.stringify({ action: "sync_order", providerId: order.provider_id, orderId: order.id, providerOrderId: order.provider_order_id }) });
         const result = await resp.json().catch(() => ({}));
         if (!resp.ok || !result.success) throw new Error(result.message ?? "Status sync failed");
         await supabase.rpc("complete_order_status_sync", { p_order_id: order.id, p_status: result.status });
