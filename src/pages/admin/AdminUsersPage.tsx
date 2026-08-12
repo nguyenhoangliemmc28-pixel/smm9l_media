@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Pencil, Wallet, Ban, ShieldCheck, KeyRound, MoreVertical, Users } from 'lucide-react';
+import { Search, Pencil, Wallet, Ban, ShieldCheck, KeyRound, MoreVertical, Users, UserCheck, UserX, Crown } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -15,153 +15,34 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import type { IAdminUser } from '@/lib/admin';
 
 const PER_PAGE = 10;
-
-const roleTone: Record<string, 'neutral' | 'warning' | 'primary' | 'accent' | 'danger'> = {
-  MEMBER: 'neutral', VIP: 'warning', RESELLER: 'primary', SUPPORT: 'accent', ADMIN: 'danger', SUPER_ADMIN: 'danger',
-};
-const statusConfig: Record<string, { tone: 'success' | 'warning' | 'danger' | 'neutral'; label: string }> = {
-  ACTIVE: { tone: 'success', label: 'Hoạt động' }, PENDING: { tone: 'warning', label: 'Chờ' }, BANNED: { tone: 'danger', label: 'Bị cấm' }, SUSPENDED: { tone: 'neutral', label: 'Tạm khóa' },
-};
+const roleTone: Record<string, 'neutral' | 'warning' | 'primary' | 'accent' | 'danger'> = { MEMBER: 'neutral', VIP: 'warning', RESELLER: 'primary', SUPPORT: 'accent', ADMIN: 'danger', SUPER_ADMIN: 'danger' };
+const statusConfig: Record<string, { tone: 'success' | 'warning' | 'danger' | 'neutral'; label: string }> = { ACTIVE: { tone: 'success', label: 'Hoạt động' }, PENDING: { tone: 'warning', label: 'Chờ' }, BANNED: { tone: 'danger', label: 'Bị cấm' }, SUSPENDED: { tone: 'neutral', label: 'Tạm khóa' } };
 
 export function AdminUsersPage() {
   const { toast } = useToast();
-  const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [page, setPage] = useState(1);
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const [editUser, setEditUser] = useState<IAdminUser | null>(null);
-  const [editForm, setEditForm] = useState({ role: 'MEMBER', status: 'ACTIVE', notes: '' });
-  const [saving, setSaving] = useState(false);
-  const [balanceUser, setBalanceUser] = useState<IAdminUser | null>(null);
-  const [balanceForm, setBalanceForm] = useState({ amount: 0, reason: '' });
-  const [balanceSaving, setBalanceSaving] = useState(false);
-  const [resetLoading, setResetLoading] = useState<string | null>(null);
-
-  const { data: users, loading, refetch } = useQuery(
-    () => fetchUsersFull(100, 0, search || undefined, roleFilter, statusFilter),
-    [search, roleFilter, statusFilter],
-  );
-
+  const [search, setSearch] = useState(''); const [roleFilter, setRoleFilter] = useState('all'); const [statusFilter, setStatusFilter] = useState('all'); const [page, setPage] = useState(1); const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [editUser, setEditUser] = useState<IAdminUser | null>(null); const [editForm, setEditForm] = useState({ role: 'MEMBER', status: 'ACTIVE', notes: '' }); const [saving, setSaving] = useState(false);
+  const [balanceUser, setBalanceUser] = useState<IAdminUser | null>(null); const [balanceForm, setBalanceForm] = useState({ amount: 0, reason: '' }); const [balanceSaving, setBalanceSaving] = useState(false); const [resetLoading, setResetLoading] = useState<string | null>(null);
+  const { data: users, loading, refetch } = useQuery(() => fetchUsersFull(100, 0, search || undefined, roleFilter, statusFilter), [search, roleFilter, statusFilter]);
   useEffect(() => { setPage(1); }, [search, roleFilter, statusFilter]);
-
-  const paginated = (users ?? []).slice((page - 1) * PER_PAGE, page * PER_PAGE);
-
+  const list = users ?? []; const paginated = list.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const active = list.filter(u => u.status === 'ACTIVE').length; const banned = list.filter(u => u.status === 'BANNED').length; const privileged = list.filter(u => ['ADMIN','SUPER_ADMIN','SUPPORT','RESELLER'].includes(u.role)).length;
   const openEdit = (u: IAdminUser) => { setEditUser(u); setEditForm({ role: u.role, status: u.status, notes: u.notes ?? '' }); setOpenMenu(null); };
-
-  const handleSaveUser = async () => {
-    if (!editUser) return;
-    setSaving(true);
-    try { await updateUser(editUser.id, editForm.role, editForm.status, editForm.notes); toast('Đã cập nhật người dùng', 'success'); setEditUser(null); refetch(); }
-    catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); }
-    finally { setSaving(false); }
-  };
-
+  const handleSaveUser = async () => { if (!editUser) return; setSaving(true); try { await updateUser(editUser.id, editForm.role, editForm.status, editForm.notes); toast('Đã cập nhật người dùng', 'success'); setEditUser(null); refetch(); } catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); } finally { setSaving(false); } };
   const openBalance = (u: IAdminUser) => { setBalanceUser(u); setBalanceForm({ amount: 0, reason: '' }); setOpenMenu(null); };
-
-  const handleAdjustBalance = async () => {
-    if (!balanceUser) return;
-    if (balanceForm.amount === 0) { toast('Số tiền phải khác 0', 'error'); return; }
-    setBalanceSaving(true);
-    try { await adjustBalance(balanceUser.id, balanceForm.amount, balanceForm.reason || 'Admin điều chỉnh'); toast('Đã điều chỉnh số dư', 'success'); setBalanceUser(null); refetch(); }
-    catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); }
-    finally { setBalanceSaving(false); }
-  };
-
+  const handleAdjustBalance = async () => { if (!balanceUser) return; if (balanceForm.amount === 0) { toast('Số tiền phải khác 0', 'error'); return; } setBalanceSaving(true); try { await adjustBalance(balanceUser.id, balanceForm.amount, balanceForm.reason || 'Admin điều chỉnh'); toast('Đã điều chỉnh số dư', 'success'); setBalanceUser(null); refetch(); } catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); } finally { setBalanceSaving(false); } };
   const quickBan = async (u: IAdminUser) => { setOpenMenu(null); try { await updateUser(u.id, u.role, 'BANNED', u.notes ?? ''); toast('Đã cấm người dùng', 'success'); refetch(); } catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); } };
   const quickUnban = async (u: IAdminUser) => { setOpenMenu(null); try { await updateUser(u.id, u.role, 'ACTIVE', u.notes ?? ''); toast('Đã mở khóa', 'success'); refetch(); } catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); } };
+  const handleResetPassword = async (u: IAdminUser) => { setOpenMenu(null); setResetLoading(u.id); try { const result = await resetUserPassword(u.id); toast(result.success ? (result.message ?? 'Đã gửi email reset mật khẩu') : (result.message ?? 'Lỗi'), result.success ? 'success' : 'error'); } catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); } finally { setResetLoading(null); } };
 
-  const handleResetPassword = async (u: IAdminUser) => {
-    setOpenMenu(null);
-    setResetLoading(u.id);
-    try {
-      const result = await resetUserPassword(u.id);
-      if (result.success) toast(result.message ?? 'Đã gửi email reset mật khẩu', 'success');
-      else toast(result.message ?? 'Lỗi', 'error');
-    } catch (e: any) { toast(e.message ?? 'Lỗi', 'error'); }
-    finally { setResetLoading(null); }
-  };
-
-  return (
-    <div className="space-y-5">
-      <PageHeader title="Quản lý người dùng" subtitle={`${users?.length ?? 0} người dùng`} />
-
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1 max-w-md"><Input placeholder="Tìm theo username, email..." value={search} onChange={(e) => setSearch(e.target.value)} leftIcon={<Search className="h-4 w-4" />} /></div>
-        <div className="flex gap-2">
-          <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} containerClassName="w-36"><option value="all">Tất cả vai trò</option><option value="MEMBER">Member</option><option value="VIP">VIP</option><option value="RESELLER">Reseller</option><option value="SUPPORT">Support</option><option value="ADMIN">Admin</option></Select>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} containerClassName="w-36"><option value="all">Tất cả trạng thái</option><option value="ACTIVE">Hoạt động</option><option value="PENDING">Chờ</option><option value="BANNED">Bị cấm</option><option value="SUSPENDED">Tạm khóa</option></Select>
-        </div>
-      </div>
-
-      <Card className="overflow-hidden">
-        {loading ? (
-          <div className="p-6 space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton h-12 rounded-lg" />)}</div>
-        ) : paginated.length === 0 ? (
-          <EmptyState icon={Users} title="Chưa có người dùng" />
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-text-dim border-b border-border bg-bg-soft/30">
-                    <th className="font-medium py-3 px-4">Người dùng</th><th className="font-medium py-3 px-4 text-right">Số dư</th><th className="font-medium py-3 px-4">Vai trò</th><th className="font-medium py-3 px-4">Trạng thái</th><th className="font-medium py-3 px-4">Ngày đăng ký</th><th className="font-medium py-3 px-4 text-right">Hành động</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginated.map((u, i) => (
-                    <motion.tr key={u.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="border-b border-border/40 hover:bg-white/[0.02]">
-                      <td className="py-3 px-4"><div className="flex items-center gap-2.5"><div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-xs font-semibold text-white">{u.username?.[0]?.toUpperCase()}</div><div><div className="text-white font-medium">{u.username}</div><div className="text-xs text-text-dim">{u.email}</div></div></div></td>
-                      <td className="py-3 px-4 text-right font-medium text-white">{formatCurrency(Number(u.balance))}</td>
-                      <td className="py-3 px-4"><Badge tone={roleTone[u.role] ?? 'neutral'} size="sm">{u.role}</Badge></td>
-                      <td className="py-3 px-4"><Badge tone={statusConfig[u.status]?.tone ?? 'neutral'} size="sm" dot>{statusConfig[u.status]?.label ?? u.status}</Badge></td>
-                      <td className="py-3 px-4 text-xs text-text-dim whitespace-nowrap">{formatDate(u.created_at)}</td>
-                      <td className="py-3 px-4 relative">
-                        <button onClick={() => setOpenMenu(openMenu === u.id ? null : u.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[0.06] ml-auto"><MoreVertical className="h-4 w-4" /></button>
-                        {openMenu === u.id && (
-                          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="absolute right-4 top-12 z-20 w-48 rounded-xl glass-strong shadow-card-hover p-1.5">
-                            <button onClick={() => openEdit(u)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text-muted hover:text-white hover:bg-white/[0.04]"><Pencil className="h-4 w-4" /> Sửa</button>
-                            <button onClick={() => openBalance(u)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text-muted hover:text-white hover:bg-white/[0.04]"><Wallet className="h-4 w-4" /> Điều chỉnh số dư</button>
-                            {u.status === 'BANNED' ? <button onClick={() => quickUnban(u)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-success hover:bg-success/10"><ShieldCheck className="h-4 w-4" /> Mở khóa</button> : <button onClick={() => quickBan(u)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-danger hover:bg-danger/10"><Ban className="h-4 w-4" /> Cấm user</button>}
-                            <button onClick={() => handleResetPassword(u)} disabled={resetLoading === u.id} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text-muted hover:text-white hover:bg-white/[0.04] disabled:opacity-50"><KeyRound className="h-4 w-4" /> {resetLoading === u.id ? 'Đang gửi...' : 'Reset mật khẩu'}</button>
-                          </motion.div>
-                        )}
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <TablePagination page={page} perPage={PER_PAGE} total={(users ?? []).length} onPageChange={setPage} />
-          </>
-        )}
-      </Card>
-
-      <Modal open={!!editUser} onClose={() => setEditUser(null)} title="Sửa người dùng" size="md">
-        {editUser && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-bg-soft/40 border border-border">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-sm font-semibold text-white">{editUser.username?.[0]?.toUpperCase()}</div>
-              <div><div className="text-sm font-semibold text-white">{editUser.username}</div><div className="text-xs text-text-dim">{editUser.email}</div></div>
-            </div>
-            <Select label="Vai trò" value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}><option value="MEMBER">Member</option><option value="VIP">VIP</option><option value="RESELLER">Reseller</option><option value="SUPPORT">Support</option><option value="ADMIN">Admin</option><option value="SUPER_ADMIN">Super Admin</option></Select>
-            <Select label="Trạng thái" value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}><option value="ACTIVE">Hoạt động</option><option value="PENDING">Chờ xác minh</option><option value="BANNED">Bị cấm</option><option value="SUSPENDED">Tạm khóa</option></Select>
-            <Textarea label="Ghi chú admin" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
-            <div className="flex justify-end gap-3 pt-2"><Button variant="secondary" onClick={() => setEditUser(null)}>Hủy</Button><Button loading={saving} onClick={handleSaveUser}>Lưu</Button></div>
-          </div>
-        )}
-      </Modal>
-
-      <Modal open={!!balanceUser} onClose={() => setBalanceUser(null)} title="Điều chỉnh số dư" size="md">
-        {balanceUser && (
-          <div className="space-y-4">
-            <div className="p-3 rounded-xl bg-bg-soft/40 border border-border"><div className="flex items-center justify-between"><span className="text-sm text-text-muted">{balanceUser.username}</span><span className="text-sm font-semibold text-white">Số dư: {formatCurrency(Number(balanceUser.balance))}</span></div></div>
-            <Input label="Số tiền (âm = trừ, dương = cộng)" type="number" step="0.01" value={balanceForm.amount} onChange={(e) => setBalanceForm({ ...balanceForm, amount: parseFloat(e.target.value) || 0 })} />
-            <Input label="Lý do" value={balanceForm.reason} onChange={(e) => setBalanceForm({ ...balanceForm, reason: e.target.value })} placeholder="VD: Bồi thường đơn lỗi" />
-            <div className="flex justify-end gap-3 pt-2"><Button variant="secondary" onClick={() => setBalanceUser(null)}>Hủy</Button><Button loading={balanceSaving} onClick={handleAdjustBalance}>Điều chỉnh</Button></div>
-          </div>
-        )}
-      </Modal>
+  return <div className="space-y-5">
+    <PageHeader title="Quản lý người dùng" subtitle={`${list.length} người dùng`} />
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {[['Tổng người dùng', list.length, Users], ['Đang hoạt động', active, UserCheck], ['Bị khóa', banned, UserX], ['Tài khoản đặc quyền', privileged, Crown]].map(([label, value, Icon]: any, i) => <motion.div key={label as string} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * .04 }}><Card className="p-4"><div className="flex items-center justify-between"><div><p className="text-xs text-text-dim">{label}</p><p className="text-xl font-bold text-white mt-1">{value}</p></div><div className="h-9 w-9 rounded-xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center"><Icon className="h-4 w-4 text-primary-300" /></div></div></Card></motion.div>)}
     </div>
-  );
+    <div className="flex flex-col sm:flex-row gap-3"><div className="flex-1 max-w-md"><Input placeholder="Tìm username, email..." value={search} onChange={e => setSearch(e.target.value)} leftIcon={<Search className="h-4 w-4" />} /></div><div className="flex gap-2"><Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} containerClassName="w-36"><option value="all">Tất cả vai trò</option><option value="MEMBER">Member</option><option value="VIP">VIP</option><option value="RESELLER">Reseller</option><option value="SUPPORT">Support</option><option value="ADMIN">Admin</option></Select><Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} containerClassName="w-36"><option value="all">Tất cả trạng thái</option><option value="ACTIVE">Hoạt động</option><option value="PENDING">Chờ</option><option value="BANNED">Bị cấm</option><option value="SUSPENDED">Tạm khóa</option></Select></div></div>
+    <Card className="overflow-hidden">{loading ? <div className="p-6 space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton h-12 rounded-lg" />)}</div> : paginated.length === 0 ? <EmptyState icon={Users} title="Chưa có người dùng" /> : <><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-xs text-text-dim border-b border-border bg-bg-soft/30"><th className="font-medium py-3 px-4">Người dùng</th><th className="font-medium py-3 px-4 text-right">Số dư</th><th className="font-medium py-3 px-4">Vai trò</th><th className="font-medium py-3 px-4">Trạng thái</th><th className="font-medium py-3 px-4">Ngày đăng ký</th><th className="font-medium py-3 px-4 text-right">Hành động</th></tr></thead><tbody>{paginated.map((u, i) => <motion.tr key={u.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i*.02 }} className="border-b border-border/40 hover:bg-white/[.02]"><td className="py-3 px-4"><div className="flex items-center gap-2.5"><div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-xs font-semibold text-white">{u.username?.[0]?.toUpperCase()}</div><div><div className="text-white font-medium">{u.username}</div><div className="text-xs text-text-dim">{u.email}</div></div></div></td><td className="py-3 px-4 text-right font-medium text-white">{formatCurrency(Number(u.balance))}</td><td className="py-3 px-4"><Badge tone={roleTone[u.role] ?? 'neutral'} size="sm">{u.role}</Badge></td><td className="py-3 px-4"><Badge tone={statusConfig[u.status]?.tone ?? 'neutral'} size="sm" dot>{statusConfig[u.status]?.label ?? u.status}</Badge></td><td className="py-3 px-4 text-xs text-text-dim whitespace-nowrap">{formatDate(u.created_at)}</td><td className="py-3 px-4 relative"><button onClick={() => setOpenMenu(openMenu === u.id ? null : u.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[.06] ml-auto"><MoreVertical className="h-4 w-4" /></button>{openMenu === u.id && <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="absolute right-4 top-12 z-20 w-48 rounded-xl glass-strong shadow-card-hover p-1.5"><button onClick={() => openEdit(u)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text-muted hover:text-white hover:bg-white/[.04]"><Pencil className="h-4 w-4"/> Sửa</button><button onClick={() => openBalance(u)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text-muted hover:text-white hover:bg-white/[.04]"><Wallet className="h-4 w-4"/> Điều chỉnh số dư</button>{u.status === 'BANNED' ? <button onClick={() => quickUnban(u)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-success hover:bg-success/10"><ShieldCheck className="h-4 w-4"/> Mở khóa</button> : <button onClick={() => quickBan(u)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-danger hover:bg-danger/10"><Ban className="h-4 w-4"/> Cấm user</button>}<button onClick={() => handleResetPassword(u)} disabled={resetLoading === u.id} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text-muted hover:text-white hover:bg-white/[.04] disabled:opacity-50"><KeyRound className="h-4 w-4"/> {resetLoading === u.id ? 'Đang gửi...' : 'Reset mật khẩu'}</button></motion.div>}</td></motion.tr>)}</tbody></table></div><TablePagination page={page} perPage={PER_PAGE} total={list.length} onPageChange={setPage}/></>}</Card>
+    <Modal open={!!editUser} onClose={() => setEditUser(null)} title="Sửa người dùng" size="md">{editUser && <div className="space-y-4"><div className="flex items-center gap-3 p-3 rounded-xl bg-bg-soft/40 border border-border"><div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-sm font-semibold text-white">{editUser.username?.[0]?.toUpperCase()}</div><div><div className="text-sm font-semibold text-white">{editUser.username}</div><div className="text-xs text-text-dim">{editUser.email}</div></div></div><Select label="Vai trò" value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })}><option value="MEMBER">Member</option><option value="VIP">VIP</option><option value="RESELLER">Reseller</option><option value="SUPPORT">Support</option><option value="ADMIN">Admin</option><option value="SUPER_ADMIN">Super Admin</option></Select><Select label="Trạng thái" value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}><option value="ACTIVE">Hoạt động</option><option value="PENDING">Chờ xác minh</option><option value="BANNED">Bị cấm</option><option value="SUSPENDED">Tạm khóa</option></Select><Textarea label="Ghi chú admin" value={editForm.notes} onChange={e => setEditForm({ ...editForm, notes: e.target.value })}/><div className="flex justify-end gap-3 pt-2"><Button variant="secondary" onClick={() => setEditUser(null)}>Hủy</Button><Button loading={saving} onClick={handleSaveUser}>Lưu</Button></div></div>}</Modal>
+    <Modal open={!!balanceUser} onClose={() => setBalanceUser(null)} title="Điều chỉnh số dư" size="md">{balanceUser && <div className="space-y-4"><div className="p-3 rounded-xl bg-bg-soft/40 border border-border flex items-center justify-between"><span className="text-sm text-text-muted">{balanceUser.username}</span><span className="text-sm font-semibold text-white">{formatCurrency(Number(balanceUser.balance))}</span></div><Input label="Số tiền (âm = trừ, dương = cộng)" type="number" value={balanceForm.amount} onChange={e => setBalanceForm({ ...balanceForm, amount: parseFloat(e.target.value) || 0 })}/><Input label="Lý do" value={balanceForm.reason} onChange={e => setBalanceForm({ ...balanceForm, reason: e.target.value })} placeholder="VD: Bồi thường đơn lỗi"/><div className="flex justify-end gap-3 pt-2"><Button variant="secondary" onClick={() => setBalanceUser(null)}>Hủy</Button><Button loading={balanceSaving} onClick={handleAdjustBalance}>Điều chỉnh</Button></div></div>}</Modal>
+  </div>;
 }
