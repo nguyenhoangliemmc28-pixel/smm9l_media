@@ -31,11 +31,11 @@ export function LandingNavbar({ onNavigate }: { onNavigate: (path: string) => vo
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className={`flex items-center justify-between transition-all duration-300 ${scrolled ? 'h-14' : 'h-20'}`}>
-          <a href="#home" className="flex items-center gap-2.5 shrink-0">
+          <a href="#home" className="flex items-center gap-2.5 shrink-0" aria-label="9L Media">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center shadow-glow">
               <Zap className="w-5 h-5 text-white" strokeWidth={2} />
             </div>
-            <span className="text-lg font-bold tracking-tight">Boost<span className="text-gradient-primary">Hub</span></span>
+            <span className="text-lg font-bold tracking-tight">9L<span className="text-gradient-primary"> MEDIA</span></span>
           </a>
 
           <nav className="hidden lg:flex items-center gap-1">
