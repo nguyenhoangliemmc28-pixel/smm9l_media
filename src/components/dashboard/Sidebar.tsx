@@ -8,7 +8,7 @@ import {
 import { useAuth } from '@/lib/auth';
 import { formatCurrency, cn } from '@/lib/utils';
 
-interface NavItem { label: string; icon: LucideIcon; path: string; badge?: string; adminOnly?: boolean; }
+interface NavItem { label: string; icon: LucideIcon; path: string; adminOnly?: boolean; }
 const navGroups: { title?: string; items: NavItem[] }[] = [
   { items: [{ label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }] },
   { items: [
@@ -45,14 +45,14 @@ export function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
   return (
     <aside className={cn('fixed inset-y-0 left-0 z-40 flex flex-col bg-bg-sidebar border-r border-border transition-all duration-300', collapsed ? 'w-[76px]' : 'w-[256px]')}>
       <div className={cn('flex items-center h-16 px-4 border-b border-border', collapsed && 'justify-center')}>
-        <button onClick={() => navigate('/')} className="flex items-center gap-2.5">
+        <button onClick={() => navigate('/')} className="flex items-center gap-2.5" aria-label="9L Media">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center shadow-glow shrink-0">
             <Zap className="h-5 w-5 text-white" strokeWidth={2} />
           </div>
-          {!collapsed && <span className="text-lg font-bold tracking-tight">Boost<span className="text-gradient-primary">Hub</span></span>}
+          {!collapsed && <span className="text-lg font-bold tracking-tight">9L<span className="text-gradient-primary"> MEDIA</span></span>}
         </button>
       </div>
-      <button onClick={() => setCollapsed(!collapsed)} className="absolute -right-3 top-20 h-6 w-6 rounded-full glass-strong flex items-center justify-center text-text-muted hover:text-white">
+      <button onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'} className="absolute -right-3 top-20 h-6 w-6 rounded-full glass-strong flex items-center justify-center text-text-muted hover:text-white">
         <motion.span animate={{ rotate: collapsed ? 180 : 0 }} transition={{ duration: 0.2 }}><ChevronLeft className="h-3.5 w-3.5" /></motion.span>
       </button>
       <nav className="flex-1 overflow-y-auto no-scrollbar py-4 px-3 space-y-5">
