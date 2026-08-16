@@ -32,7 +32,7 @@ export async function fetchServiceById(id: string): Promise<IService | null> {
 }
 
 export async function fetchOrders(filters?: { status?: string; limit?: number }): Promise<IOrder[]> {
-  let query = supabase.from('orders').select('*, service:services(*)').order('created_at', { ascending: false });
+  let query = supabase.from('orders').select(`*, service:services(${PUBLIC_SERVICE_COLUMNS})`).order('created_at', { ascending: false });
   if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
   const { data, error } = await query.limit(filters?.limit ?? 100);
   if (error) throw error;
