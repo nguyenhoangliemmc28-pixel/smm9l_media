@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import type { ICategory, IService, IOrder, IWalletTransaction, INotification, IDeposit, ITicket, ITicketReply, IAffiliate, IApiKey, IWithdraw } from '@/lib/types';
 
+const PUBLIC_SERVICE_COLUMNS = 'id,category_id,name,description,type,price,minimum,maximum,refill,cancel,average_time,estimated_time,average_speed,featured,status,visibility,sort_order,icon,tags,api_type,created_at,updated_at';
+
 export async function fetchCategories(): Promise<ICategory[]> {
   const { data, error } = await supabase.from('categories').select('*').eq('status', true).order('sort_order', { ascending: true });
   if (error) throw error;
@@ -14,7 +16,7 @@ export async function fetchCategoryBySlug(slug: string): Promise<ICategory | nul
 }
 
 export async function fetchServices(filters?: { categoryId?: string; search?: string; featuredOnly?: boolean }): Promise<IService[]> {
-  let query = supabase.from('services').select('*, category:categories(*)').eq('status', true).eq('visibility', true).order('sort_order', { ascending: true });
+  let query = supabase.from('services').select(PUBLIC_SERVICE_COLUMNS).eq('status', true).eq('visibility', true).order('sort_order', { ascending: true });
   if (filters?.categoryId) query = query.eq('category_id', filters.categoryId);
   if (filters?.featuredOnly) query = query.eq('featured', true);
   if (filters?.search) query = query.ilike('name', `%${filters.search}%`);
@@ -24,13 +26,13 @@ export async function fetchServices(filters?: { categoryId?: string; search?: st
 }
 
 export async function fetchServiceById(id: string): Promise<IService | null> {
-  const { data, error } = await supabase.from('services').select('*, category:categories(*)').eq('id', id).maybeSingle();
+  const { data, error } = await supabase.from('services').select(PUBLIC_SERVICE_COLUMNS).eq('id', id).maybeSingle();
   if (error) throw error;
   return data as unknown as IService | null;
 }
 
 export async function fetchOrders(filters?: { status?: string; limit?: number }): Promise<IOrder[]> {
-  let query = supabase.from('orders').select('*, service:services(*, category:categories(*))').order('created_at', { ascending: false });
+  let query = supabase.from('orders').select('*, service:services(*)').order('created_at', { ascending: false });
   if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
   const { data, error } = await query.limit(filters?.limit ?? 100);
   if (error) throw error;
@@ -42,7 +44,6 @@ export async function createOrder(serviceId: string, link: string, quantity: num
   if (error) return { success: false, message: error.message };
   const result = data as { success: boolean; order_id?: string; message?: string };
   if (!result.success) return { success: false, message: result.message };
-  // create_order() atomically enqueues the order. The server-side order-worker owns provider dispatch.
   return { success: true, orderId: result.order_id, message: result.message };
 }
 
