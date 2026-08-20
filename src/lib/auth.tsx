@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseConfigured } from '@/lib/supabase';
 import type { IProfile } from '@/lib/types';
 
 interface IAuthContext {
@@ -15,6 +15,7 @@ interface IAuthContext {
 }
 
 const AuthContext = createContext<IAuthContext | undefined>(undefined);
+const backendUnavailable = 'Hệ thống đăng nhập đang được cấu hình. Vui lòng thử lại sau.';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -23,51 +24,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   async function loadProfile(userId: string) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
+    if (!supabaseConfigured) return;
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (error) {
       console.error('loadProfile error', error.message);
       return;
     }
-
     setProfile(data as IProfile | null);
   }
 
   useEffect(() => {
     let mounted = true;
 
+    if (!supabaseConfigured) {
+      setLoading(false);
+      return () => { mounted = false; };
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session);
       setUser(data.session?.user ?? null);
-
       if (data.session?.user) {
         loadProfile(data.session.user.id).finally(() => mounted && setLoading(false));
       } else {
         setLoading(false);
       }
+    }).catch((error) => {
+      console.error('Supabase session error', error);
+      if (mounted) setLoading(false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (!mounted) return;
-
       setSession(newSession);
       setUser(newSession?.user ?? null);
-
       if (!newSession?.user) {
         setProfile(null);
         setLoading(false);
         return;
       }
-
-      // Do not make a Supabase query directly inside the auth state callback.
-      // Supabase can hold its internal auth lock while invoking this callback,
-      // which can deadlock another Supabase request. Schedule profile loading
-      // after the callback has returned instead.
       setLoading(true);
       setTimeout(() => {
         if (!mounted) return;
@@ -82,43 +78,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
+    if (!supabaseConfigured) return { error: backendUnavailable };
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
     return { error: error ? translateError(error.message) : null };
   }
 
   async function signUp(email: string, password: string, username: string) {
+    if (!supabaseConfigured) return { error: backendUnavailable };
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedUsername = username.trim();
-
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
       options: { data: { username: normalizedUsername } },
     });
-
     if (error) return { error: translateError(error.message) };
     if (!data.user) return { error: 'Không thể tạo tài khoản. Vui lòng thử lại.' };
     return { error: null };
   }
 
   async function signOut() {
+    if (!supabaseConfigured) {
+      setProfile(null);
+      setUser(null);
+      setSession(null);
+      return;
+    }
     const { error } = await supabase.auth.signOut();
     setProfile(null);
     if (error) throw error;
   }
 
   async function refreshProfile() {
-    if (user) await loadProfile(user.id);
+    if (user && supabaseConfigured) await loadProfile(user.id);
   }
 
-  return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signIn, signUp, signOut, refreshProfile }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, session, profile, loading, signIn, signUp, signOut, refreshProfile }}>{children}</AuthContext.Provider>;
 }
 
 function translateError(msg: string): string {
