@@ -5,6 +5,101 @@ import { fetchCategoryBySlug, fetchServices } from '@/lib/services';
 import type { ICategory, IService } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-const platforms=['ALL','FACEBOOK','TIKTOK','INSTAGRAM','YOUTUBE','TELEGRAM','TWITTER','SHOPEE','SPOTIFY','WHATSAPP','BIGO','THREADS'];
-type C=ICategory&{code_number?:string|null;description?:string|null}; type S=IService&{platform?:string|null;sub_category_type?:string|null;badges?:string[]|null;is_available?:boolean};
-export function ModuleDetailPage(){const {slug=''}=useParams();const navigate=useNavigate();const[category,setCategory]=useState<C|null>(null);const[services,setServices]=useState<S[]>([]);const[platform,setPlatform]=useState('ALL');const[sub,setSub]=useState('ALL');useEffect(()=>{(async()=>{const c=await fetchCategoryBySlug(slug);setCategory(c as C);if(c)setServices(await fetchServices({categoryId:c.id}) as S[])})().catch(()=>{})},[slug]);const subs=useMemo(()=>['ALL',...Array.from(new Set(services.map(s=>s.sub_category_type).filter(Boolean) as string[]))],[services]);const filtered=services.filter(s=>(platform==='ALL'||s.platform===platform)&&(sub==='ALL'||s.sub_category_type===sub)&&s.is_available!==false);if(!category)return <div className="min-h-screen bg-[#050914] text-white p-10 text-center">Không tìm thấy module.</div>;return <div className="min-h-screen bg-[#050914] text-white px-4 py-8 sm:px-8 lg:px-12"><div className="mx-auto max-w-7xl"><button className="mb-5 text-sm text-text-muted hover:text-white" onClick={()=>navigate('/modules')}>← Tất cả module</button><div className="mb-7"><div className="text-primary-300 text-xs font-bold tracking-[.2em]">MODULE {category.code_number}</div><h1 className="mt-2 text-3xl font-black">{category.name.toUpperCase()}</h1><p className="mt-2 text-text-muted">{category.description}</p></div><div className="mb-4 flex gap-2 overflow-x-auto pb-2"><Filter className="mt-2 h-4 w-4 shrink-0 text-text-dim"/>{platforms.map(p=><button key={p} onClick={()=>setPlatform(p)} className={`whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-semibold ${platform===p?'border-primary-400/40 bg-primary-500/15 text-primary-200':'border-white/[.06] bg-white/[.02] text-text-muted'}`}>{p}</button>)}</div><div className="mb-6 flex gap-2 overflow-x-auto pb-2">{subs.map(s=><button key={s} onClick={()=>setSub(s)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs ${sub===s?'bg-white/10 text-white':'text-text-dim hover:text-white'}`}>{s}</button>)}</div><div className="grid gap-4 md:grid-cols-2">{filtered.map(s=><Card key={s.id} className="border-white/[.07] bg-white/[.025] p-5 hover:border-primary-400/30"><div className="flex justify-between gap-4"><div><div className="mb-2 flex items-center gap-2"><Zap className="h-4 w-4 text-cyan-300"/><span className="text-xs text-text-dim">{s.platform||'SOCIAL'} · {s.sub_category_type||'DỊCH VỤ'}</span></div><h2 className="font-bold text-white">{s.name}</h2><p className="mt-2 text-sm text-text-muted">{s.description||'Dịch vụ truyền thông được cấu hình bởi Admin.'}</p></div><div className="text-right"><div className="text-xl font-black text-emerald-300">{Number(s.price).toLocaleString('vi-VN')}₫</div><div className="text-[11px] text-text-dim">/ 1000</div></div></div><div className="mt-5 flex items-center justify-between"><div className="flex gap-2">{(s.badges||s.tags||[]).map(b=><span key={b} className="rounded-full bg-orange-400/10 px-2 py-1 text-[10px] font-bold text-orange-300">{b}</span>)}{s.minimum>0&&<span className="text-xs text-text-dim">MIN {s.minimum} · MAX {s.maximum}</span>}</div><Button size="sm" onClick={()=>navigate(`/dashboard/new-order?service=${s.id}`)}>Đặt ngay <ArrowRight className="h-4 w-4"/></Button></div></Card>)}</div>{filtered.length===0&&<div className="py-16 text-center text-text-dim">Chưa có dịch vụ phù hợp với bộ lọc.</div>}</div></div>}
+
+const platforms = ['ALL', 'FACEBOOK', 'TIKTOK', 'INSTAGRAM', 'YOUTUBE', 'TELEGRAM', 'TWITTER', 'SHOPEE', 'SPOTIFY', 'WHATSAPP', 'BIGO', 'THREADS'];
+
+type C = ICategory;
+type S = IService;
+
+export function ModuleDetailPage() {
+  const { slug = '' } = useParams();
+  const navigate = useNavigate();
+  const [category, setCategory] = useState<C | null>(null);
+  const [services, setServices] = useState<S[]>([]);
+  const [platform, setPlatform] = useState('ALL');
+  const [sub, setSub] = useState('ALL');
+
+  useEffect(() => {
+    (async () => {
+      const c = await fetchCategoryBySlug(slug);
+      setCategory(c);
+      if (c) setServices(await fetchServices({ categoryId: c.id }));
+    })().catch(() => {
+      setCategory(null);
+      setServices([]);
+    });
+  }, [slug]);
+
+  const subs = useMemo(
+    () => ['ALL', ...Array.from(new Set(services.map((s) => s.sub_category_type).filter(Boolean) as string[]))],
+    [services],
+  );
+
+  const filtered = services.filter(
+    (s) => (platform === 'ALL' || s.platform === platform) && (sub === 'ALL' || s.sub_category_type === sub) && s.is_available !== false,
+  );
+
+  if (!category) return <div className="min-h-screen bg-[#050914] text-white p-10 text-center">Không tìm thấy module.</div>;
+
+  return (
+    <div className="min-h-screen bg-[#050914] text-white px-4 py-8 sm:px-8 lg:px-12">
+      <div className="mx-auto max-w-7xl">
+        <button className="mb-5 text-sm text-text-muted hover:text-white" onClick={() => navigate('/modules')}>← Tất cả module</button>
+        <div className="mb-7">
+          <div className="text-primary-300 text-xs font-bold tracking-[.2em]">MODULE {category.code_number ?? '--'}</div>
+          <h1 className="mt-2 text-3xl font-black">{category.name.toUpperCase()}</h1>
+          <p className="mt-2 text-text-muted">{category.description ?? 'Dịch vụ được quản lý động bởi Admin.'}</p>
+        </div>
+
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
+          <Filter className="mt-2 h-4 w-4 shrink-0 text-text-dim" />
+          {platforms.map((p) => (
+            <button key={p} onClick={() => setPlatform(p)} className={`whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-semibold ${platform === p ? 'border-primary-400/40 bg-primary-500/15 text-primary-200' : 'border-white/[.06] bg-white/[.02] text-text-muted'}`}>
+              {p}
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+          {subs.map((s) => (
+            <button key={s} onClick={() => setSub(s)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs ${sub === s ? 'bg-white/10 text-white' : 'text-text-dim hover:text-white'}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {filtered.map((s) => (
+            <Card key={s.id} className="border-white/[.07] bg-white/[.025] p-5 hover:border-primary-400/30">
+              <div className="flex justify-between gap-4">
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-cyan-300" />
+                    <span className="text-xs text-text-dim">{s.platform || 'SOCIAL'} · {s.sub_category_type || 'DỊCH VỤ'}</span>
+                  </div>
+                  <h2 className="font-bold text-white">{s.name}</h2>
+                  <p className="mt-2 text-sm text-text-muted">{s.description || 'Dịch vụ truyền thông được cấu hình bởi Admin.'}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-xl font-black text-emerald-300">{Number(s.price).toLocaleString('vi-VN')}₫</div>
+                  <div className="text-[11px] text-text-dim">/ 1000</div>
+                </div>
+              </div>
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2 items-center">
+                  {(s.badges?.length ? s.badges : s.tags ?? []).map((b) => (
+                    <span key={b} className="rounded-full bg-orange-400/10 px-2 py-1 text-[10px] font-bold text-orange-300">{b}</span>
+                  ))}
+                  {s.minimum > 0 && <span className="text-xs text-text-dim">MIN {s.minimum} · MAX {s.maximum}</span>}
+                </div>
+                <Button size="sm" onClick={() => navigate(`/dashboard/new-order?service=${s.id}`)}>Đặt ngay <ArrowRight className="h-4 w-4" /></Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {filtered.length === 0 && <div className="py-16 text-center text-text-dim">Chưa có dịch vụ phù hợp với bộ lọc.</div>}
+      </div>
+    </div>
+  );
+}
