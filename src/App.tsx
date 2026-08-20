@@ -66,32 +66,92 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
   }
 }
 
-function AdminRoutes() { return <AdminRoute><AdminLayout /></AdminRoute>; }
-
-function AdminContent() {
-  return <>
-    <Route index element={<AdminDashboard />} /><Route path="orders" element={<AdminOrdersPage />} /><Route path="services" element={<AdminServicesPage />} />
-    <Route path="categories" element={<AdminCategoriesPage />} /><Route path="catalog" element={<AdminCatalogPage />} /><Route path="providers" element={<AdminProvidersPage />} />
-    <Route path="users" element={<AdminUsersPage />} /><Route path="wallet" element={<AdminWalletPage />} /><Route path="deposits" element={<AdminDepositsPage />} />
-    <Route path="withdrawals" element={<AdminWithdrawalsPage />} /><Route path="tickets" element={<AdminTicketsPage />} /><Route path="announcements" element={<AdminAnnouncementsPage />} />
-    <Route path="coupons" element={<AdminCouponsPage />} /><Route path="affiliate" element={<AdminAffiliatePage />} /><Route path="api-keys" element={<AdminApiKeysPage />} />
-    <Route path="settings" element={<AdminSettingsPage />} /><Route path="logs" element={<AdminLogsPage />} /><Route path="statistics" element={<AdminStatisticsPage />} />
-  </>;
+function AdminRoutes() {
+  return (
+    <AdminRoute>
+      <AdminLayout />
+    </AdminRoute>
+  );
 }
 
 function App() {
-  return <AppErrorBoundary><BrowserRouter><Suspense fallback={<PageLoader />}><Routes>
-    <Route path="/" element={<LandingPage />} /><Route path="/login" element={<LoginPage />} /><Route path="/register" element={<RegisterPage />} />
-    <Route path="/modules" element={<ModuleHubPage />} /><Route path="/module/:slug" element={<ModuleDetailPage />} />
-    <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-      <Route index element={<DashboardHome />} /><Route path="services" element={<ServicesPage />} /><Route path="new-order" element={<NewOrderPage />} />
-      <Route path="orders" element={<OrdersPage />} /><Route path="orders/running" element={<OrdersPage />} /><Route path="orders/completed" element={<OrdersPage />} /><Route path="orders/failed" element={<OrdersPage />} />
-      <Route path="wallet" element={<WalletPage />} /><Route path="deposit" element={<DepositPage />} /><Route path="transactions" element={<WalletPage />} /><Route path="affiliate" element={<AffiliatePage />} />
-      <Route path="api" element={<ApiPage />} /><Route path="tickets" element={<TicketsPage />} /><Route path="notifications" element={<NotificationsPage />} /><Route path="settings" element={<SettingsPage />} />
-    </Route>
-    <Route path="/dashboard/admin" element={<AdminRoutes />}><AdminContent /></Route><Route path="/admin" element={<AdminRoutes />}><AdminContent /></Route>
-    <Route path="*" element={<NotFoundPage />} />
-  </Routes></Suspense></BrowserRouter></AppErrorBoundary>;
+  return (
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/modules" element={<ModuleHubPage />} />
+            <Route path="/module/:slug" element={<ModuleDetailPage />} />
+
+            <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route index element={<DashboardHome />} />
+              <Route path="services" element={<ServicesPage />} />
+              <Route path="new-order" element={<NewOrderPage />} />
+              <Route path="orders" element={<OrdersPage />} />
+              <Route path="orders/running" element={<OrdersPage />} />
+              <Route path="orders/completed" element={<OrdersPage />} />
+              <Route path="orders/failed" element={<OrdersPage />} />
+              <Route path="wallet" element={<WalletPage />} />
+              <Route path="deposit" element={<DepositPage />} />
+              <Route path="transactions" element={<WalletPage />} />
+              <Route path="affiliate" element={<AffiliatePage />} />
+              <Route path="api" element={<ApiPage />} />
+              <Route path="tickets" element={<TicketsPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
+
+            <Route path="/dashboard/admin" element={<AdminRoutes />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="orders" element={<AdminOrdersPage />} />
+              <Route path="services" element={<AdminServicesPage />} />
+              <Route path="categories" element={<AdminCategoriesPage />} />
+              <Route path="catalog" element={<AdminCatalogPage />} />
+              <Route path="providers" element={<AdminProvidersPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="wallet" element={<AdminWalletPage />} />
+              <Route path="deposits" element={<AdminDepositsPage />} />
+              <Route path="withdrawals" element={<AdminWithdrawalsPage />} />
+              <Route path="tickets" element={<AdminTicketsPage />} />
+              <Route path="announcements" element={<AdminAnnouncementsPage />} />
+              <Route path="coupons" element={<AdminCouponsPage />} />
+              <Route path="affiliate" element={<AdminAffiliatePage />} />
+              <Route path="api-keys" element={<AdminApiKeysPage />} />
+              <Route path="settings" element={<AdminSettingsPage />} />
+              <Route path="logs" element={<AdminLogsPage />} />
+              <Route path="statistics" element={<AdminStatisticsPage />} />
+            </Route>
+
+            <Route path="/admin" element={<AdminRoutes />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="orders" element={<AdminOrdersPage />} />
+              <Route path="services" element={<AdminServicesPage />} />
+              <Route path="categories" element={<AdminCategoriesPage />} />
+              <Route path="catalog" element={<AdminCatalogPage />} />
+              <Route path="providers" element={<AdminProvidersPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="wallet" element={<AdminWalletPage />} />
+              <Route path="deposits" element={<AdminDepositsPage />} />
+              <Route path="withdrawals" element={<AdminWithdrawalsPage />} />
+              <Route path="tickets" element={<AdminTicketsPage />} />
+              <Route path="announcements" element={<AdminAnnouncementsPage />} />
+              <Route path="coupons" element={<AdminCouponsPage />} />
+              <Route path="affiliate" element={<AdminAffiliatePage />} />
+              <Route path="api-keys" element={<AdminApiKeysPage />} />
+              <Route path="settings" element={<AdminSettingsPage />} />
+              <Route path="logs" element={<AdminLogsPage />} />
+              <Route path="statistics" element={<AdminStatisticsPage />} />
+            </Route>
+
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </AppErrorBoundary>
+  );
 }
 
 export default App;
