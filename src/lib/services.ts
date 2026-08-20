@@ -1,22 +1,23 @@
 import { supabase } from '@/lib/supabase';
 import type { ICategory, IService, IOrder, IWalletTransaction, INotification, IDeposit, ITicket, ITicketReply, IAffiliate, IApiKey, IWithdraw } from '@/lib/types';
 
-const PUBLIC_SERVICE_COLUMNS = 'id,category_id,name,description,type,price,minimum,maximum,refill,cancel,average_time,estimated_time,average_speed,featured,status,visibility,sort_order,icon,tags,api_type,created_at,updated_at';
+const PUBLIC_SERVICE_COLUMNS = 'id,category_id,name,description,type,price,minimum,maximum,refill,cancel,average_time,estimated_time,average_speed,featured,status,visibility,sort_order,icon,tags,api_type,platform,sub_category_type,badges,is_available,provider_service_id,created_at,updated_at';
+const PUBLIC_CATEGORY_COLUMNS = 'id,name,slug,icon,color,sort_order,status,code_number,description,icon_glow_color,created_at,updated_at';
 
 export async function fetchCategories(): Promise<ICategory[]> {
-  const { data, error } = await supabase.from('categories').select('*').eq('status', true).order('sort_order', { ascending: true });
+  const { data, error } = await supabase.from('categories').select(PUBLIC_CATEGORY_COLUMNS).eq('status', true).order('sort_order', { ascending: true });
   if (error) throw error;
   return data as ICategory[];
 }
 
 export async function fetchCategoryBySlug(slug: string): Promise<ICategory | null> {
-  const { data, error } = await supabase.from('categories').select('*').eq('slug', slug).maybeSingle();
+  const { data, error } = await supabase.from('categories').select(PUBLIC_CATEGORY_COLUMNS).eq('slug', slug).maybeSingle();
   if (error) throw error;
   return data as ICategory | null;
 }
 
 export async function fetchServices(filters?: { categoryId?: string; search?: string; featuredOnly?: boolean }): Promise<IService[]> {
-  let query = supabase.from('services').select(PUBLIC_SERVICE_COLUMNS).eq('status', true).eq('visibility', true).order('sort_order', { ascending: true });
+  let query = supabase.from('services').select(PUBLIC_SERVICE_COLUMNS).eq('status', true).eq('visibility', true).eq('is_available', true).order('sort_order', { ascending: true });
   if (filters?.categoryId) query = query.eq('category_id', filters.categoryId);
   if (filters?.featuredOnly) query = query.eq('featured', true);
   if (filters?.search) query = query.ilike('name', `%${filters.search}%`);
