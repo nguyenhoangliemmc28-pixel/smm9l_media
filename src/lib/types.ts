@@ -50,6 +50,11 @@ export interface ICategory {
   color: string | null;
   sort_order: number;
   status: boolean;
+  code_number?: string | null;
+  description?: string | null;
+  icon_glow_color?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface IService {
@@ -77,6 +82,10 @@ export interface IService {
   icon: string | null;
   tags: string[] | null;
   api_type: string;
+  platform?: string | null;
+  sub_category_type?: string | null;
+  badges?: string[] | null;
+  is_available?: boolean;
   created_at: string;
   category?: ICategory;
   category_name?: string;
