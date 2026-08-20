@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
-import { Select, Textarea, Toggle } from '@/components/ui/Select';
+import { Select, Textarea } from '@/components/ui/Select';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { TablePagination, EmptyState, PageHeader } from '@/components/ui/Table';
 import { useToast } from '@/lib/toast';
@@ -16,7 +16,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { IService, ICategory, IProvider } from '@/lib/types';
 
 const PER_PAGE = 10;
-type SortKey = 'name' | 'price' | 'sort_order' | 'created_at';
+type SortKey = 'name' | 'price' | 'cost' | 'sort_order' | 'created_at';
 
 const emptyForm: Partial<IService> = {
   name: '', category_id: '', provider_id: null, description: '', price: 0, cost: 0,
@@ -57,6 +57,7 @@ export function AdminServicesPage() {
     list.sort((a, b) => {
       let cmp = 0;
       if (sortKey === 'price') cmp = a.price - b.price;
+      else if (sortKey === 'cost') cmp = (a.cost ?? 0) - (b.cost ?? 0);
       else if (sortKey === 'sort_order') cmp = a.sort_order - b.sort_order;
       else if (sortKey === 'created_at') cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       else cmp = a.name.localeCompare(b.name);
@@ -74,10 +75,14 @@ export function AdminServicesPage() {
 
   const handleSave = async () => {
     if (!form.name || !form.category_id) { toast('Vui lòng nhập tên và danh mục', 'error'); return; }
+    const cost = Number(form.cost ?? 0);
+    const price = Number(form.price ?? 0);
+    if (cost < 0 || price < 0) { toast('Giá vốn và giá bán không được âm', 'error'); return; }
+    if (price < cost) { toast('Giá bán đang thấp hơn giá vốn. Vui lòng kiểm tra lại.', 'error'); return; }
     setSaving(true);
     try {
       const tags = tagInput.split(',').map((t) => t.trim()).filter(Boolean);
-      await saveService({ ...form, tags, id: editing?.id });
+      await saveService({ ...form, cost, price, tags, id: editing?.id });
       toast(editing ? 'Đã cập nhật dịch vụ' : 'Đã tạo dịch vụ mới', 'success');
       setModalOpen(false);
       refetch();
@@ -134,42 +139,51 @@ export function AdminServicesPage() {
                   <tr className="text-left text-xs text-text-dim border-b border-border bg-bg-soft/30">
                     <th className="font-medium py-3 px-4 cursor-pointer select-none" onClick={() => toggleSort('name')}><span className="inline-flex items-center gap-1">Tên <ArrowUpDown className="h-3 w-3" /></span></th>
                     <th className="font-medium py-3 px-4">Danh mục</th>
-                    <th className="font-medium py-3 px-4 cursor-pointer select-none" onClick={() => toggleSort('price')}><span className="inline-flex items-center gap-1">Giá <ArrowUpDown className="h-3 w-3" /></span></th>
+                    <th className="font-medium py-3 px-4 cursor-pointer select-none" onClick={() => toggleSort('cost')}><span className="inline-flex items-center gap-1">Giá vốn / 1K <ArrowUpDown className="h-3 w-3" /></span></th>
+                    <th className="font-medium py-3 px-4 cursor-pointer select-none" onClick={() => toggleSort('price')}><span className="inline-flex items-center gap-1">Giá bán / 1K <ArrowUpDown className="h-3 w-3" /></span></th>
+                    <th className="font-medium py-3 px-4">Lợi nhuận / 1K</th>
                     <th className="font-medium py-3 px-4">Min/Max</th>
                     <th className="font-medium py-3 px-4">Trạng thái</th>
                     <th className="font-medium py-3 px-4 text-right">Hành động</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginated.map((s, i) => (
-                    <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="border-b border-border/40 hover:bg-white/[0.02]">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          {s.featured && <Star className="h-3.5 w-3.5 text-warning fill-warning" />}
-                          <div>
-                            <div className="text-white font-medium">{s.name}</div>
-                            {s.provider_name && <div className="text-xs text-text-dim">{s.provider_name}</div>}
+                  {paginated.map((s, i) => {
+                    const cost = Number(s.cost ?? 0);
+                    const price = Number(s.price ?? 0);
+                    const profit = price - cost;
+                    return (
+                      <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="border-b border-border/40 hover:bg-white/[0.02]">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            {s.featured && <Star className="h-3.5 w-3.5 text-warning fill-warning" />}
+                            <div>
+                              <div className="text-white font-medium">{s.name}</div>
+                              {s.provider_name && <div className="text-xs text-text-dim">{s.provider_name}</div>}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-text-muted">{s.category_name ?? catMap.get(s.category_id) ?? '-'}</td>
-                      <td className="py-3 px-4 text-white font-medium">{formatCurrency(s.price)}<span className="text-text-dim text-xs">/1000</span></td>
-                      <td className="py-3 px-4 text-text-muted text-xs">{s.minimum} - {s.maximum}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex flex-col gap-1">
-                          <Badge tone={s.status ? 'success' : 'neutral'} size="sm" dot>{s.status ? 'Active' : 'Off'}</Badge>
-                          {s.visibility ? <Badge tone="info" size="sm">Hiển thị</Badge> : <Badge tone="neutral" size="sm">Ẩn</Badge>}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openEdit(s)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[0.06]" title="Sửa"><Pencil className="h-4 w-4" /></button>
-                          <button onClick={() => handleDuplicate(s.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[0.06]" title="Nhân bản"><Copy className="h-4 w-4" /></button>
-                          <button onClick={() => setDeleteId(s.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger/10" title="Xóa"><Trash2 className="h-4 w-4" /></button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
+                        </td>
+                        <td className="py-3 px-4 text-text-muted">{s.category_name ?? catMap.get(s.category_id) ?? '-'}</td>
+                        <td className="py-3 px-4 text-text-muted font-medium">{formatCurrency(cost)}<span className="text-text-dim text-xs">/1000</span></td>
+                        <td className="py-3 px-4 text-white font-medium">{formatCurrency(price)}<span className="text-text-dim text-xs">/1000</span></td>
+                        <td className={`py-3 px-4 font-semibold ${profit > 0 ? 'text-success' : profit < 0 ? 'text-danger' : 'text-text-muted'}`}>{profit >= 0 ? '+' : ''}{formatCurrency(profit)}<span className="text-text-dim text-xs">/1000</span></td>
+                        <td className="py-3 px-4 text-text-muted text-xs">{s.minimum} - {s.maximum}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-col gap-1">
+                            <Badge tone={s.status ? 'success' : 'neutral'} size="sm" dot>{s.status ? 'Active' : 'Off'}</Badge>
+                            {s.visibility ? <Badge tone="info" size="sm">Hiển thị</Badge> : <Badge tone="neutral" size="sm">Ẩn</Badge>}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => openEdit(s)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[0.06]" title="Sửa"><Pencil className="h-4 w-4" /></button>
+                            <button onClick={() => handleDuplicate(s.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-white hover:bg-white/[0.06]" title="Nhân bản"><Copy className="h-4 w-4" /></button>
+                            <button onClick={() => setDeleteId(s.id)} className="h-8 w-8 rounded-lg flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger/10" title="Xóa"><Trash2 className="h-4 w-4" /></button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -195,42 +209,45 @@ export function AdminServicesPage() {
             </Select>
           </div>
           <div className="grid sm:grid-cols-3 gap-4">
-            <Input label="Giá (per 1000)" type="number" step="0.01" value={form.price ?? 0} onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} />
-            <Input label="Giá vốn" type="number" step="0.01" value={form.cost ?? 0} onChange={(e) => setForm({ ...form, cost: parseFloat(e.target.value) || 0 })} />
-            <Input label="Lợi nhuận" type="number" disabled value={((form.price ?? 0) - (form.cost ?? 0)).toFixed(2)} />
+            <Input label="Giá vốn / 1K" type="number" min="0" step="0.01" value={form.cost ?? 0} onChange={(e) => setForm({ ...form, cost: parseFloat(e.target.value) || 0 })} hint="Chi phí thực tế từ AutoSubRe" />
+            <Input label="Giá bán / 1K" type="number" min="0" step="0.01" value={form.price ?? 0} onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} hint="Giá khách hàng phải trả" />
+            <Input label="Lợi nhuận / 1K" type="number" disabled value={(Number(form.price ?? 0) - Number(form.cost ?? 0)).toFixed(2)} />
           </div>
+          <div className="rounded-lg border border-border bg-bg-soft/30 px-4 py-3 text-xs text-text-muted">Giá vốn chỉ dùng nội bộ Admin. Khách hàng chỉ nhìn thấy giá bán. Đồng bộ giá từ provider không được tự động ghi đè giá bán đã chỉnh.</div>
           <div className="grid sm:grid-cols-2 gap-4">
             <Input label="Số lượng tối thiểu" type="number" value={form.minimum ?? 1} onChange={(e) => setForm({ ...form, minimum: parseInt(e.target.value) || 1 })} />
             <Input label="Số lượng tối đa" type="number" value={form.maximum ?? 1000} onChange={(e) => setForm({ ...form, maximum: parseInt(e.target.value) || 1000 })} />
           </div>
           <Textarea label="Mô tả" value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 gap-4">
             <Input label="Thời gian ước tính" value={form.estimated_time ?? ''} onChange={(e) => setForm({ ...form, estimated_time: e.target.value })} placeholder="VD: 0-30 phút" />
             <Input label="Tốc độ trung bình" value={form.average_speed ?? ''} onChange={(e) => setForm({ ...form, average_speed: e.target.value })} placeholder="VD: 5000/ngày" />
-            <Input label="Thời gian TB" value={form.average_time ?? ''} onChange={(e) => setForm({ ...form, average_time: e.target.value })} placeholder="VD: 0-1 giờ" />
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
+            <Input label="Thời gian TB" value={form.average_time ?? ''} onChange={(e) => setForm({ ...form, average_time: e.target.value })} placeholder="VD: 0-1 giờ" />
             <Input label="Tags (phân tách bằng dấu phẩy)" value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="VD: cheap, fast, hq" />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
             <Select label="API Type" value={form.api_type ?? 'DEFAULT'} onChange={(e) => setForm({ ...form, api_type: e.target.value })}>
               <option value="DEFAULT">Default</option><option value="CUSTOM">Custom</option><option value="SUBSCRIPTION">Subscription</option><option value="MENTIONS">Mentions</option><option value="COMMENT_LIKES">Comment Likes</option>
             </Select>
+            <Input label="Thứ tự hiển thị" type="number" value={form.sort_order ?? 0} onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value) || 0 })} />
           </div>
-          <Input label="Thứ tự sắp xếp" type="number" value={form.sort_order ?? 0} onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value) || 0 })} />
-          <div className="grid sm:grid-cols-2 gap-4 p-4 rounded-xl bg-bg-soft/40 border border-border">
-            <Toggle checked={form.status ?? true} onChange={(v) => setForm({ ...form, status: v })} label="Hoạt động" />
-            <Toggle checked={form.visibility ?? true} onChange={(v) => setForm({ ...form, visibility: v })} label="Hiển thị" />
-            <Toggle checked={form.featured ?? false} onChange={(v) => setForm({ ...form, featured: v })} label="Nổi bật" />
-            <Toggle checked={form.refill ?? false} onChange={(v) => setForm({ ...form, refill: v })} label="Hỗ trợ Refill" />
-            <Toggle checked={form.cancel ?? false} onChange={(v) => setForm({ ...form, cancel: v })} label="Hỗ trợ Hủy" />
+          <div className="flex flex-wrap gap-6 text-sm">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={!!form.refill} onChange={(e) => setForm({ ...form, refill: e.target.checked })} /> Refill</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={!!form.cancel} onChange={(e) => setForm({ ...form, cancel: e.target.checked })} /> Cancel</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={!!form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} /> Nổi bật</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={form.status !== false} onChange={(e) => setForm({ ...form, status: e.target.checked })} /> Hoạt động</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={form.visibility !== false} onChange={(e) => setForm({ ...form, visibility: e.target.checked })} /> Hiển thị</label>
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Hủy</Button>
-            <Button loading={saving} onClick={handleSave}>{editing ? 'Lưu thay đổi' : 'Tạo dịch vụ'}</Button>
+            <Button onClick={handleSave} loading={saving}>{editing ? 'Lưu thay đổi' : 'Tạo dịch vụ'}</Button>
           </div>
         </div>
       </Modal>
 
-      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => deleteId && handleDelete(deleteId)} title="Xóa dịch vụ" message="Bạn có chắc muốn xóa dịch vụ này? Hành động không thể hoàn tác." confirmLabel="Xóa" danger />
+      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => { if (deleteId) handleDelete(deleteId); setDeleteId(null); }} title="Xóa dịch vụ" message="Bạn có chắc muốn xóa dịch vụ này? Hành động không thể hoàn tác." confirmText="Xóa" />
     </div>
   );
 }
