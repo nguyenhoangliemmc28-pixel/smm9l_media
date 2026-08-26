@@ -53,7 +53,6 @@ export function AdminProvidersPage() {
     setSaving(true);
     try {
       if (editing) {
-        // An empty API key intentionally preserves the encrypted/hidden provider credential server-side.
         await updateProvider(editing.id, form.name, form.api_url, form.api_key, form.status, form.description);
       } else {
         await createProvider(form.name, form.api_url, form.api_key, form.description);
@@ -82,7 +81,11 @@ export function AdminProvidersPage() {
     setTesting(p.id);
     try {
       const r = await testProviderConnection(p.id);
-      r.success ? toast(r.message ?? `Kết nối ${p.name} thành công`, 'success') : toast(r.message ?? 'Kết nối thất bại', 'error');
+      if (r.success) {
+        toast(r.message ?? `Kết nối ${p.name} thành công`, 'success');
+      } else {
+        toast(r.message ?? 'Kết nối thất bại', 'error');
+      }
     } catch (e: any) {
       toast(e.message ?? 'Không thể kết nối', 'error');
     } finally {
@@ -94,8 +97,12 @@ export function AdminProvidersPage() {
     setImporting(p.id);
     try {
       const r = await importProviderServices(p.id);
-      r.success ? toast(`Đã import ${r.imported ?? 0} dịch vụ`, 'success') : toast(r.message ?? 'Import thất bại', 'error');
-      if (r.success) refetch();
+      if (r.success) {
+        toast(`Đã import ${r.imported ?? 0} dịch vụ`, 'success');
+        refetch();
+      } else {
+        toast(r.message ?? 'Import thất bại', 'error');
+      }
     } catch (e: any) {
       toast(e.message ?? 'Lỗi', 'error');
     } finally {
@@ -107,8 +114,12 @@ export function AdminProvidersPage() {
     setSyncing(p.id);
     try {
       const r = await syncProviderPrices(p.id);
-      r.success ? toast(`Đã đồng bộ ${r.synced ?? 0} giá dịch vụ`, 'success') : toast(r.message ?? 'Đồng bộ thất bại', 'error');
-      if (r.success) refetch();
+      if (r.success) {
+        toast(`Đã đồng bộ ${r.synced ?? 0} giá dịch vụ`, 'success');
+        refetch();
+      } else {
+        toast(r.message ?? 'Đồng bộ thất bại', 'error');
+      }
     } catch (e: any) {
       toast(e.message ?? 'Lỗi', 'error');
     } finally {
